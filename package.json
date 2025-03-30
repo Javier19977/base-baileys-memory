@@ -19,6 +19,7 @@
         "cache-manager": "5.2.4",
         "express": "^4.21.2",
         "mysql2": "^3.14.0",
+        "qrcode": "^1.5.4",
         "wa-sticker-formatter": "4.4.4"
     },
     "devDependencies": {

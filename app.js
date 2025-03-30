@@ -3,8 +3,25 @@ const QRPortalWeb = require('@bot-whatsapp/portal');
 const BaileysProvider = require('@bot-whatsapp/provider/baileys');
 const MockAdapter = require('@bot-whatsapp/database/mock');
 const express = require('express');
+const qrcode = require('qrcode');
+const mysql = require('mysql2/promise');
+
 const app = express();
 app.use(express.json());
+
+// Configuración de la base de datos
+const dbConfig = {
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'bd_catalogo',
+};
+
+// Conexión a la base de datos
+const connectToDatabase = async () => {
+    const connection = await mysql.createConnection(dbConfig);
+    return connection;
+};
 
 const flowSecundario = addKeyword(['2', 'siguiente']).addAnswer(['📄 Aquí tenemos el flujo secundario']);
 
@@ -22,8 +39,39 @@ const main = async () => {
         database: adapterDB,
     });
 
-    // Cambia el puerto de QRPortalWeb a 3001
+    // Cambia el puerto de QRPortalWeb a 3002
     QRPortalWeb({ port: 3002 });
+
+    // Endpoint para generar un código QR y asignarlo a un usuario
+    app.post('/generate-qr', async (req, res) => {
+        try {
+            const { userId } = req.body;
+
+            if (!userId) {
+                return res.status(400).json({ error: "El ID del usuario es obligatorio." });
+            }
+
+            // Generar el código QR
+            const qrCodeData = await qrcode.toDataURL(`User ID: ${userId}`);
+
+            // Conexión a la base de datos
+            const connection = await connectToDatabase();
+
+            // Insertar el código QR en la base de datos
+            const [result] = await connection.execute(
+                'INSERT INTO sesiones (idcliente, escaneado, fechaescaneo) VALUES (?, ?, NOW())',
+                [userId, qrCodeData]
+            );
+
+            // Cerrar la conexión a la base de datos
+            await connection.end();
+
+            return res.json({ success: true, qrCode: qrCodeData });
+        } catch (error) {
+            console.error("Error generando el código QR:", error);
+            return res.status(500).json({ error: "Error interno en el servidor." });
+        }
+    });
 
     // Lógica para enviar mensajes a través de un endpoint HTTP
     app.post('/send-message', async (req, res) => {
